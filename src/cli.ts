@@ -1,57 +1,31 @@
 import { Command } from "commander";
 
-import { chunk } from "./chunker";
 import { loadConfig } from "./config";
-import { createEmbedder } from "./embeddings";
 import { ClaudeProvider } from "./generation";
-import { redactChunks } from "./guardrails";
-import { loadDocuments } from "./loader";
-import { buildPrompt } from "./prompt";
-import type { Chunk } from "./types";
-import { VectorStore } from "./vectorstore";
+import { ask, ingest } from "./pipeline";
+import type { ScoredChunk } from "./types";
 
-async function ingest(dir: string): Promise<void> {
+function formatHits(hits: ScoredChunk[]): string {
+  return hits.map((hit) => `${hit.chunk.id} (${hit.score.toFixed(3)})`).join(", ");
+}
+
+async function runIngest(dir: string): Promise<void> {
   const config = loadConfig();
-
-  const documents = await loadDocuments(dir);
-  if (documents.length === 0) {
-    throw new Error(`No .txt or .md files found in ${dir}`);
-  }
-
-  const chunks: Chunk[] = documents.flatMap((doc) =>
-    chunk(doc.text, doc.sourceFile, {
-      size: config.chunkSize,
-      overlap: config.chunkOverlap,
-    }),
-  );
-
-  console.log(`Loaded ${documents.length} documents → ${chunks.length} chunks`);
   console.log(`Embedding with ${config.embeddingModel} …`);
 
-  const embedder = await createEmbedder(config.embeddingModel);
-  const store = new VectorStore();
-  for (const item of chunks) {
-    store.upsert(item.id, await embedder.embed(item.text), item);
-  }
-
-  await store.save(config.storePath);
+  const result = await ingest(dir, config);
+  console.log(`Loaded ${result.documents} documents → ${result.chunks} chunks`);
   console.log(
-    `Wrote ${store.size} vectors (${embedder.dimensions} dimensions) to ${config.storePath}`,
+    `Wrote ${result.chunks} vectors (${result.dimensions} dimensions) to ${result.storePath}`,
   );
 }
 
-async function ask(question: string): Promise<void> {
+async function runAsk(question: string): Promise<void> {
   const config = loadConfig();
+  const result = await ask(question, config, () => ClaudeProvider.fromEnv(config.anthropicModel));
 
-  const store = await VectorStore.load(config.storePath);
-  const embedder = await createEmbedder(config.embeddingModel);
-  const hits = store.search(await embedder.embed(question), config.topK);
-
-  const best = hits[0];
-  if (!best || best.score < config.similarityThreshold) {
-    // Cheap refusal: nothing retrieved is close enough to be worth grounding
-    // an answer in, so there is no reason to spend a model call finding that out.
-    const score = best ? best.score.toFixed(3) : "n/a";
+  if (result.refused) {
+    const score = result.hits[0]?.score.toFixed(3) ?? "n/a";
     console.log(
       `I don't know — nothing in the corpus is close enough to this question ` +
         `(best score ${score}, threshold ${config.similarityThreshold}).`,
@@ -59,14 +33,8 @@ async function ask(question: string): Promise<void> {
     return;
   }
 
-  const context = redactChunks(hits.map((hit) => hit.chunk));
-  const provider = ClaudeProvider.fromEnv(config.anthropicModel);
-  const answer = await provider.complete(buildPrompt(question, context));
-
-  console.log(answer);
-  console.log(
-    `\nRetrieved: ${hits.map((hit) => `${hit.chunk.id} (${hit.score.toFixed(3)})`).join(", ")}`,
-  );
+  console.log(result.answer);
+  console.log(`\nRetrieved: ${formatHits(result.hits)}`);
 }
 
 const program = new Command();
@@ -80,13 +48,13 @@ program
   .command("ingest")
   .argument("<dir>", "directory containing .txt and .md documents")
   .description("Load, chunk, embed and persist the corpus")
-  .action(ingest);
+  .action(runIngest);
 
 program
   .command("ask")
   .argument("<question>", "question to answer from the ingested corpus")
   .description("Retrieve context and answer the question, citing its sources")
-  .action(ask);
+  .action(runAsk);
 
 try {
   await program.parseAsync();

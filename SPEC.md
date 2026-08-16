@@ -188,10 +188,21 @@ E2E test with the real local model (first run downloads it, ~120 MB, cached).
   marginal chunk that slips through still meets the prompt-level grounding
   rule, which is the second line of defence.
 
+- **Top-k = 3 is load-bearing, not a default.** Measured over seven questions
+  against the real corpus: top-1 retrieval picks the right document 6/7 times,
+  top-3 contains it 7/7. The single miss ("Millaisissa paikoissa ahven
+  viihtyy?" ranked a `kuha.md` chunk first) is the expected failure mode for a
+  small embedding model over documents with near-identical structure — two
+  fish-behaviour notes with the same section headings. Passing three chunks to
+  the model rather than one is what absorbs it, since the model cites from the
+  context it is given.
+
 ## Open Questions
 
-- The corpus is three documents. The margin above will narrow as the corpus
+- The corpus is three documents. The threshold margin will narrow as the corpus
   grows and chunks start competing; re-run the calibration when it does.
+- If top-1 accuracy matters more later, the fix is a reranker over the top-k,
+  not a bigger embedding model — see Out of scope.
 
 ## Out of scope (mention, don't build)
 
