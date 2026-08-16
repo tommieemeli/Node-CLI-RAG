@@ -1,0 +1,4 @@
+node_modules/
+.rag/
+.env
+*.log
