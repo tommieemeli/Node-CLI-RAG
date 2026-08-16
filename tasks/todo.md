@@ -7,7 +7,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
 
 ## Phase A — Foundation
 
-- [ ] **S1: Scaffold the project**
+- [x] **S1: Scaffold the project**
   - Acceptance: `npm install` succeeds; `npm test` runs vitest and reports 0
     tests (not an error); `npm run typecheck` is clean; `.rag/` and `.env` are
     gitignored
@@ -15,7 +15,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
   - Files: `package.json`, `tsconfig.json`, `vitest.config.ts`, `.gitignore`
   - Commit: `chore: scaffold TypeScript + vitest project`
 
-- [ ] **S2: Shared types and config**
+- [x] **S2: Shared types and config**
   - Acceptance: `Chunk`, `ScoredChunk`, `StoredVector`, `LLMProvider` exported
     from `types.ts`; `config.ts` reads `CHUNK_SIZE`, `CHUNK_OVERLAP`, `TOP_K`,
     `SIMILARITY_THRESHOLD`, `EMBEDDING_MODEL`, `ANTHROPIC_MODEL`, `STORE_PATH`
@@ -24,7 +24,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
   - Files: `src/types.ts`, `src/config.ts`, `.env.example`
   - Commit: `feat(config): add shared types and env-backed configuration`
 
-- [ ] **S3: Vector store**
+- [x] **S3: Vector store**
   - Acceptance: `upsert` keyed by chunk id replaces rather than appends;
     `search` returns top-k by cosine, descending; `save`/`load` round-trip to
     JSON without precision loss that changes ordering
@@ -36,7 +36,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
 
 ## Phase B — Pure pipeline stages
 
-- [ ] **S4: Chunker**
+- [x] **S4: Chunker**
   - Acceptance: respects `size`/`overlap`; prefers paragraph then sentence
     boundaries; hard-splits when no boundary exists inside the window; throws
     when `overlap >= size`; ids are `file.md#chunk0`, `#chunk1`, … and stable
@@ -45,7 +45,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
   - Files: `src/chunker.ts`, `tests/chunker.test.ts`
   - Commit: `feat(chunker): split text on boundaries with configurable overlap`
 
-- [ ] **S5: Loader**
+- [x] **S5: Loader**
   - Acceptance: returns `{ path, text }` for every `.txt`/`.md` in a directory,
     skips other extensions and subdirectories, reads as UTF-8 (ä/ö intact),
     throws a clear error if the directory is missing
@@ -53,7 +53,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
   - Files: `src/loader.ts`, `tests/loader.test.ts`
   - Commit: `feat(loader): read .txt and .md documents from a directory`
 
-- [ ] **S6: Embeddings** ⚠️ highest-risk step
+- [x] **S6: Embeddings** ⚠️ highest-risk step
   - Acceptance: `embed(text): Promise<number[]>` returns a 384-length vector;
     the pipeline is created once and reused across calls; the model id comes
     from `config.ts`
@@ -62,7 +62,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
   - Files: `src/embeddings.ts`
   - Commit: `feat(embeddings): wrap local transformers pipeline`
 
-- [ ] **S7: Guardrails**
+- [x] **S7: Guardrails**
   - Acceptance: redacts emails and Finnish henkilötunnus
     (`DDMMYY[+-A]NNNC`) to `[REDACTED]`; leaves ordinary text and dates
     untouched; pure — same input, same output
@@ -70,7 +70,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
   - Files: `src/guardrails.ts`, `tests/guardrails.test.ts`
   - Commit: `feat(guardrails): redact emails and personal identity codes`
 
-- [ ] **S8: Prompt assembly**
+- [x] **S8: Prompt assembly**
   - Acceptance: builds the system prompt from the spec's grounding rule; renders
     each chunk with its id so the model can cite it; citation format is exactly
     `[source: file.md#chunk3]`; question is not interpolated into the system
@@ -83,7 +83,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
 
 ## Phase C — Generation
 
-- [ ] **S9: LLM providers**
+- [x] **S9: LLM providers**
   - Acceptance: `LLMProvider` has one method, `complete(messages): Promise<string>`;
     `MockProvider` returns a canned answer and records what it received;
     `ClaudeProvider` sends `model: "claude-opus-5"`, `max_tokens: 1024`,
@@ -98,7 +98,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
 
 ## Phase D — Wiring
 
-- [ ] **S10: CLI skeleton**
+- [x] **S10: CLI skeleton**
   - Acceptance: `rag ingest <dir>` and `rag ask <question>` are registered with
     commander, `--help` documents both, both currently exit non-zero with
     "not implemented"
@@ -106,7 +106,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
   - Files: `src/cli.ts`, `package.json` (scripts)
   - Commit: `feat(cli): register ingest and ask subcommands`
 
-- [ ] **S11: Wire `ingest`**
+- [x] **S11: Wire `ingest`**
   - Acceptance: loads → chunks → embeds → upserts → persists to `.rag/store.json`;
     prints file and chunk counts; re-running produces a byte-identical store
   - Verify: `npm run ingest`, then re-run and `git diff`-style compare the two
@@ -114,7 +114,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
   - Files: `src/cli.ts`
   - Commit: `feat(cli): wire the ingest pipeline end to end`
 
-- [ ] **S12: Wire `ask` + calibrate the threshold**
+- [x] **S12: Wire `ask` + calibrate the threshold**
   - Acceptance: loads the store, embeds the question, retrieves top-k, redacts,
     prompts, prints answer + citations; a top score below
     `SIMILARITY_THRESHOLD` short-circuits to "I don't know" **without**
@@ -129,7 +129,7 @@ the phase structure and `SPEC.md` for the contract each task implements.
 
 ## Phase E — Proof and docs
 
-- [ ] **S13: End-to-end test**
+- [x] **S13: End-to-end test**
   - Acceptance: two tiny fixture docs → ingest → ask → asserts the known answer
     and its citation, using `MockProvider`; a second case asserts the refusal
     path; runs with no `ANTHROPIC_API_KEY` set
@@ -137,10 +137,38 @@ the phase structure and `SPEC.md` for the contract each task implements.
   - Files: `tests/e2e.test.ts`, `tests/fixtures/*.md`
   - Commit: `test(e2e): cover ingest-to-answer and the refusal path`
 
-- [ ] **S14: README**
+- [x] **S14: README**
   - Acceptance: install, ingest, ask, and test commands copy-pasteable; a short
     "what you'd swap for production" table mapping each layer to its real-world
     equivalent (from SPEC → Out of scope)
   - Verify: follow the README on a clean clone; all commands work as written
   - Files: `README.md`
   - Commit: `docs: add README with usage and production-swap notes`
+
+---
+
+## Deviations from the plan
+
+All 14 steps landed. Three things went differently than planned:
+
+- **S12 — threshold.** The spec's guessed `0.35` survived calibration but was
+  poorly centred: only 0.049 of headroom below the lowest answerable question
+  versus 0.104 above the highest unanswerable one. Set to the midpoint `0.32`.
+- **S13 — an extra module.** `cli.ts` was a script with a top-level
+  `parseAsync`, so there was no seam to test against. Orchestration moved to
+  `src/pipeline.ts`, which returns structured results; `cli.ts` now only parses
+  and prints. `ask` takes a provider *factory* so "the refusal path never
+  reaches the model" is an assertion rather than a claim.
+- **S13 — fixtures rewritten.** The first fixture pair was two near-identical
+  single-chunk documents and the routing test failed on them. Probing the real
+  corpus showed the pipeline was healthy (top-1 6/7, top-3 7/7), so the
+  fixtures were the problem, not the code.
+
+## Not verified
+
+Success Criterion 3 (an answerable question returns a cited answer from the
+real model) is unverified — no Anthropic credential is available in this
+environment. Everything up to the API boundary is covered: retrieval selects
+`ahven.md`, the prompt is asserted in the e2e test, and the request shape is
+asserted in `generation.test.ts`. Run `npm run ask -- "Milloin ahven syö
+aktiivisimmin?"` with `ANTHROPIC_API_KEY` set to close it.
