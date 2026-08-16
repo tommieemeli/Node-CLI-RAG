@@ -15,7 +15,10 @@ export const defaults: Config = {
   chunkSize: 500,
   chunkOverlap: 50,
   topK: 3,
-  similarityThreshold: 0.35,
+  // Calibrated against the corpus, not guessed: the lowest-scoring answerable
+  // question measured 0.399 and the highest-scoring unanswerable one 0.246.
+  // This sits at the midpoint, so both kinds of error have equal headroom.
+  similarityThreshold: 0.32,
   // Multilingual on purpose: the corpus is Finnish. An English-only model such
   // as all-MiniLM-L6-v2 retrieves poorly here.
   embeddingModel: "Xenova/paraphrase-multilingual-MiniLM-L12-v2",

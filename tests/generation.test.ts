@@ -117,3 +117,32 @@ describe("ClaudeProvider — response handling", () => {
     await expect(new ClaudeProvider(client, "m").complete(prompt)).rejects.toThrow(/max_tokens/);
   });
 });
+
+describe("ClaudeProvider — error translation", () => {
+  function throwingClient(error: Error): MessagesClient {
+    return {
+      messages: {
+        async create() {
+          throw error;
+        },
+      },
+    };
+  }
+
+  it("turns a missing credential into the instruction that fixes it", async () => {
+    // The SDK resolves credentials lazily, so this surfaces from the request.
+    const client = throwingClient(new Error("Could not resolve authentication method."));
+
+    await expect(new ClaudeProvider(client, "m").complete(prompt)).rejects.toThrow(
+      /ANTHROPIC_API_KEY/,
+    );
+  });
+
+  it("passes other failures through untouched rather than blaming credentials", async () => {
+    const client = throwingClient(new Error("503 service overloaded"));
+
+    await expect(new ClaudeProvider(client, "m").complete(prompt)).rejects.toThrow(
+      /service overloaded/,
+    );
+  });
+});

@@ -113,7 +113,7 @@ export function chunk(text: string, sourceFile: string, opts: ChunkOptions): Chu
 ## Retrieval
 
 - Cosine similarity, top-k = 3 (configurable)
-- If best score < `SIMILARITY_THRESHOLD` (default `0.35`) → skip generation,
+- If best score < `SIMILARITY_THRESHOLD` (default `0.32`) → skip generation,
   return "I don't know" directly (cheap refusal, no LLM call needed)
 
 ## Refusal / grounding rule (prompt-level)
@@ -169,14 +169,29 @@ E2E test with the real local model (first run downloads it, ~120 MB, cached).
 5. `npm test` passes with zero network access and no `ANTHROPIC_API_KEY` set.
 6. Every layer in Project Structure exists as its own file and is unit-tested.
 
+## Resolved during implementation
+
+- **Embedding model confirmed.** `Xenova/paraphrase-multilingual-MiniLM-L12-v2`
+  loads and returns 384-dimensional L2-normalised vectors. The fallback
+  (`Xenova/multilingual-e5-small`) was not needed.
+- **Threshold calibrated, not guessed.** Measured against the real corpus over
+  five answerable and four unanswerable questions:
+
+  | | Score |
+  |---|---|
+  | Lowest-scoring answerable question | 0.399 |
+  | Highest-scoring unanswerable question | 0.246 |
+  | Margin | 0.153 |
+
+  `SIMILARITY_THRESHOLD` is set to **0.32**, the midpoint, so a false refusal
+  and a false pass have equal headroom. Erring low is the safer direction: a
+  marginal chunk that slips through still meets the prompt-level grounding
+  rule, which is the second line of defence.
+
 ## Open Questions
 
-- `Xenova/paraphrase-multilingual-MiniLM-L12-v2` is the intended model, but the
-  exact ONNX repo id must be confirmed on first `ingest` run. Fallback:
-  `Xenova/multilingual-e5-small` (needs `query:`/`passage:` prefixes).
-- `SIMILARITY_THRESHOLD = 0.35` is a guess. Calibrate against the corpus in the
-  step that wires retrieval, using both a known-answerable and a known-
-  unanswerable question.
+- The corpus is three documents. The margin above will narrow as the corpus
+  grows and chunks start competing; re-run the calibration when it does.
 
 ## Out of scope (mention, don't build)
 

@@ -3,7 +3,10 @@ import { Command } from "commander";
 import { chunk } from "./chunker";
 import { loadConfig } from "./config";
 import { createEmbedder } from "./embeddings";
+import { ClaudeProvider } from "./generation";
+import { redactChunks } from "./guardrails";
 import { loadDocuments } from "./loader";
+import { buildPrompt } from "./prompt";
 import type { Chunk } from "./types";
 import { VectorStore } from "./vectorstore";
 
@@ -37,6 +40,35 @@ async function ingest(dir: string): Promise<void> {
   );
 }
 
+async function ask(question: string): Promise<void> {
+  const config = loadConfig();
+
+  const store = await VectorStore.load(config.storePath);
+  const embedder = await createEmbedder(config.embeddingModel);
+  const hits = store.search(await embedder.embed(question), config.topK);
+
+  const best = hits[0];
+  if (!best || best.score < config.similarityThreshold) {
+    // Cheap refusal: nothing retrieved is close enough to be worth grounding
+    // an answer in, so there is no reason to spend a model call finding that out.
+    const score = best ? best.score.toFixed(3) : "n/a";
+    console.log(
+      `I don't know — nothing in the corpus is close enough to this question ` +
+        `(best score ${score}, threshold ${config.similarityThreshold}).`,
+    );
+    return;
+  }
+
+  const context = redactChunks(hits.map((hit) => hit.chunk));
+  const provider = ClaudeProvider.fromEnv(config.anthropicModel);
+  const answer = await provider.complete(buildPrompt(question, context));
+
+  console.log(answer);
+  console.log(
+    `\nRetrieved: ${hits.map((hit) => `${hit.chunk.id} (${hit.score.toFixed(3)})`).join(", ")}`,
+  );
+}
+
 const program = new Command();
 
 program
@@ -54,9 +86,7 @@ program
   .command("ask")
   .argument("<question>", "question to answer from the ingested corpus")
   .description("Retrieve context and answer the question, citing its sources")
-  .action(() => {
-    throw new Error("ask is not implemented yet");
-  });
+  .action(ask);
 
 try {
   await program.parseAsync();

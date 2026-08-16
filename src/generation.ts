@@ -18,6 +18,16 @@ export interface MessagesClient {
   };
 }
 
+/**
+ * The SDK resolves credentials lazily, so a missing key surfaces as a request
+ * error rather than a constructor error. Both shapes are worth translating into
+ * the one instruction that actually fixes it.
+ */
+function isAuthFailure(error: unknown): boolean {
+  if (error instanceof Anthropic.AuthenticationError) return true;
+  return error instanceof Error && /authentication|api[- ]?key/i.test(error.message);
+}
+
 /** Records what it was asked and returns a canned answer. Used by tests and offline demos. */
 export class MockProvider implements LLMProvider {
   readonly received: Prompt[] = [];
@@ -38,31 +48,34 @@ export class ClaudeProvider implements LLMProvider {
 
   /**
    * Build a provider against the real API. Credentials are resolved by the SDK
-   * (ANTHROPIC_API_KEY, or a profile from `ant auth login`), so this throws
-   * only when there is genuinely nothing to authenticate with.
+   * (ANTHROPIC_API_KEY, or a profile from `ant auth login`) — and resolved
+   * lazily, so a missing credential surfaces from `complete`, not here.
    */
   static fromEnv(model: string): ClaudeProvider {
-    try {
-      return new ClaudeProvider(new Anthropic(), model);
-    } catch (cause) {
-      throw new Error(
-        "No Anthropic credentials found. Set ANTHROPIC_API_KEY in .env, then retry.",
-        { cause },
-      );
-    }
+    return new ClaudeProvider(new Anthropic(), model);
   }
 
   async complete(prompt: Prompt): Promise<string> {
-    // No temperature/top_p/top_k: current models reject them with a 400.
-    // Determinism comes from the grounding rules in the system prompt, and
-    // low effort keeps a lookup-shaped question from turning into an essay.
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: MAX_TOKENS,
-      output_config: { effort: "low" },
-      system: prompt.system,
-      messages: [{ role: "user", content: prompt.user }],
-    });
+    let response: Anthropic.Message;
+    try {
+      // No temperature/top_p/top_k: current models reject them with a 400.
+      // Determinism comes from the grounding rules in the system prompt, and
+      // low effort keeps a lookup-shaped question from turning into an essay.
+      response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: MAX_TOKENS,
+        output_config: { effort: "low" },
+        system: prompt.system,
+        messages: [{ role: "user", content: prompt.user }],
+      });
+    } catch (cause) {
+      throw isAuthFailure(cause)
+        ? new Error(
+            "No Anthropic credentials found. Copy .env.example to .env and set ANTHROPIC_API_KEY, then retry.",
+            { cause },
+          )
+        : cause;
+    }
 
     if (response.stop_reason === "refusal") {
       throw new Error("The model declined to answer this question.");
