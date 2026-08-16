@@ -1,3 +1,14 @@
+/**
+ * The two pipelines, composed from the single-purpose modules in `src/`.
+ *
+ *   ingest:  load → chunk → embed → persist
+ *   ask:     load store → embed query → retrieve → refuse? → redact → prompt → generate
+ *
+ * This is the only file where the stages are wired together. `cli.ts` parses
+ * arguments and prints; every other module does one thing and is unit-tested
+ * on its own.
+ */
+
 import { chunk } from "./chunker";
 import type { Config } from "./config";
 import { createEmbedder } from "./embeddings";
@@ -15,11 +26,14 @@ export interface IngestResult {
 }
 
 export async function ingest(dir: string, config: Config): Promise<IngestResult> {
+  // 1. LOAD — .txt and .md only, non-recursive, so nothing unexpected is indexed.
   const documents = await loadDocuments(dir);
   if (documents.length === 0) {
     throw new Error(`No .txt or .md files found in ${dir}`);
   }
 
+  // 2. CHUNK — pure. Chunk ids are derived from the source file and position,
+  //    so they are stable across runs; that is what makes step 4 idempotent.
   const chunks: Chunk[] = documents.flatMap((doc) =>
     chunk(doc.text, doc.sourceFile, {
       size: config.chunkSize,
@@ -27,7 +41,11 @@ export async function ingest(dir: string, config: Config): Promise<IngestResult>
     }),
   );
 
+  // 3. EMBED — the slow stage. The model loads once, then one vector per chunk.
   const embedder = await createEmbedder(config.embeddingModel);
+
+  // 4. PERSIST — upsert is keyed by chunk id, so re-ingesting an unchanged
+  //    document overwrites each entry with itself instead of duplicating it.
   const store = new VectorStore();
   for (const item of chunks) {
     store.upsert(item.id, await embedder.embed(item.text), item);
@@ -57,17 +75,38 @@ export async function ask(
   config: Config,
   providerFor: () => LLMProvider,
 ): Promise<AskResult> {
+  // 1. LOAD STORE — reports "run ingest first" rather than an ENOENT if absent.
   const store = await VectorStore.load(config.storePath);
-  const embedder = await createEmbedder(config.embeddingModel);
-  const hits = store.search(await embedder.embed(question), config.topK);
 
+  // 2. EMBED QUERY — must be the same model used at ingest. A mismatch would
+  //    not throw; it would silently make every score meaningless.
+  const embedder = await createEmbedder(config.embeddingModel);
+  const queryVector = await embedder.embed(question);
+
+  // 3. RETRIEVE — top-k by cosine. k is 3 rather than 1 because top-1 picks the
+  //    wrong document roughly one time in seven on this corpus (see SPEC).
+  const hits = store.search(queryVector, config.topK);
+
+  // 4. GUARDRAIL — refuse. Nothing retrieved is close enough to ground an
+  //    answer in, so there is no reason to spend a model call finding that out.
   const best = hits[0];
   if (!best || best.score < config.similarityThreshold) {
     return { refused: true, hits };
   }
 
+  // 5. GUARDRAIL — redact. Strips direct identifiers from the text that is
+  //    about to leave the machine. Ids and offsets survive, so citations still
+  //    resolve. Note this covers the retrieved chunks, not the question.
   const context = redactChunks(hits.map((hit) => hit.chunk));
-  const answer = await providerFor().complete(buildPrompt(question, context));
+
+  // 6. PROMPT — grounding rules in the system turn, labelled context and the
+  //    question in the user turn. Throws if the context is empty, which would
+  //    mean step 4 let something through it should not have.
+  const prompt = buildPrompt(question, context);
+
+  // 7. GENERATE — the provider is constructed only here, which is what makes
+  //    "the refusal path never reaches the model" testable rather than claimed.
+  const answer = await providerFor().complete(prompt);
 
   return { refused: false, answer, hits };
 }
