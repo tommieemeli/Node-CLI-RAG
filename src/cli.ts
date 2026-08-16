@@ -24,6 +24,12 @@ async function runAsk(question: string): Promise<void> {
   const config = loadConfig();
   const result = await ask(question, config, () => ClaudeProvider.fromEnv(config.anthropicModel));
 
+  if (result.questionRedacted) {
+    // Silently rewriting the question would leave the user puzzling over a
+    // "[REDACTED]" in the answer.
+    console.log("Note: personal identifiers were redacted from your question.\n");
+  }
+
   if (result.refused) {
     const score = result.hits[0]?.score.toFixed(3) ?? "n/a";
     console.log(

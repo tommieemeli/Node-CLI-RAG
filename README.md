@@ -52,12 +52,16 @@ were retrieved and at what score.
 
 ```
 ingest:  loader → chunker → embeddings → vectorstore → .rag/store.json
-ask:     question → embeddings → vectorstore.search
+ask:     question → guardrails → embeddings → vectorstore.search
                                       │
                           score < threshold? ──yes──→ "I don't know"  (no model call)
                                       │no
                             guardrails → prompt → generation → answer + citations
 ```
+
+Redaction runs twice: once on the question before it reaches the embedder, and
+once on the retrieved chunks before they reach the prompt. Nothing sent to the
+model has skipped it.
 
 Each stage is one file in `src/`, is unit-tested, and can be read on its own.
 `src/pipeline.ts` is the only place they are composed; `src/cli.ts` only parses

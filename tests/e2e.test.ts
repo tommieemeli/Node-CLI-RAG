@@ -80,4 +80,52 @@ describe("end to end", () => {
   it("runs without an Anthropic API key", () => {
     expect(process.env.ANTHROPIC_API_KEY).toBeUndefined();
   });
+
+  describe("question redaction", () => {
+    it("keeps an email in the question away from the model", async () => {
+      const provider = new MockProvider(ANSWER);
+      const result = await ask(
+        "Mitä saukko syö, kysyy matti.meikalainen@example.com?",
+        config,
+        () => provider,
+      );
+
+      expect(provider.received[0]?.user).not.toContain("matti.meikalainen@example.com");
+      expect(provider.received[0]?.user).toContain("[REDACTED]");
+      expect(result.questionRedacted).toBe(true);
+    });
+
+    it("keeps a henkilötunnus in the question away from the model", async () => {
+      const provider = new MockProvider(ANSWER);
+      await ask("Saukko ja tunnus 131052-308T, mitä se syö?", config, () => provider);
+
+      expect(provider.received[0]?.user).not.toContain("131052-308T");
+    });
+
+    it("redacts before retrieval, so the store is searched with the same text", async () => {
+      const provider = new MockProvider(ANSWER);
+      const result = await ask("Mitä saukko syö, a@example.com?", config, () => provider);
+
+      // Retrieval still lands on the right document with the address removed.
+      expect(result.hits[0]?.chunk.sourceFile).toBe("saukko.md");
+    });
+
+    it("reports nothing redacted for an ordinary question", async () => {
+      const provider = new MockProvider(ANSWER);
+      const result = await ask("Mitä saukko syö?", config, () => provider);
+
+      expect(result.questionRedacted).toBe(false);
+    });
+
+    it("flags redaction even when the question is then refused", async () => {
+      const result = await ask(
+        "Kuinka korjaan polkupyörän renkaan, a@example.com?",
+        config,
+        () => new MockProvider(ANSWER),
+      );
+
+      expect(result.refused).toBe(true);
+      expect(result.questionRedacted).toBe(true);
+    });
+  });
 });

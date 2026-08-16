@@ -2,7 +2,8 @@
  * The two pipelines, composed from the single-purpose modules in `src/`.
  *
  *   ingest:  load → chunk → embed → persist
- *   ask:     load store → embed query → retrieve → refuse? → redact → prompt → generate
+ *   ask:     redact question → load store → embed query → retrieve
+ *              → refuse? → redact context → prompt → generate
  *
  * This is the only file where the stages are wired together. `cli.ts` parses
  * arguments and prints; every other module does one thing and is unit-tested
@@ -12,7 +13,7 @@
 import { chunk } from "./chunker";
 import type { Config } from "./config";
 import { createEmbedder } from "./embeddings";
-import { redactChunks } from "./guardrails";
+import { redact, redactChunks } from "./guardrails";
 import { loadDocuments } from "./loader";
 import { buildPrompt } from "./prompt";
 import type { Chunk, LLMProvider, ScoredChunk } from "./types";
@@ -60,9 +61,15 @@ export async function ingest(dir: string, config: Config): Promise<IngestResult>
   };
 }
 
+interface AskResultCommon {
+  hits: ScoredChunk[];
+  /** True when step 1 stripped an identifier out of the question. */
+  questionRedacted: boolean;
+}
+
 export type AskResult =
-  | { refused: true; hits: ScoredChunk[] }
-  | { refused: false; answer: string; hits: ScoredChunk[] };
+  | ({ refused: true } & AskResultCommon)
+  | ({ refused: false; answer: string } & AskResultCommon);
 
 /**
  * Answer a question from the persisted store.
@@ -75,38 +82,45 @@ export async function ask(
   config: Config,
   providerFor: () => LLMProvider,
 ): Promise<AskResult> {
-  // 1. LOAD STORE — reports "run ingest first" rather than an ENOENT if absent.
+  // 1. GUARDRAIL — redact the question, before anything else reads it.
+  //    Deliberately ahead of the embedder rather than just ahead of the prompt:
+  //    one redaction means retrieval and the model see the same question, and
+  //    the rule stays correct if embedding ever moves to a hosted service.
+  const safeQuestion = redact(question);
+  const questionRedacted = safeQuestion !== question;
+
+  // 2. LOAD STORE — reports "run ingest first" rather than an ENOENT if absent.
   const store = await VectorStore.load(config.storePath);
 
-  // 2. EMBED QUERY — must be the same model used at ingest. A mismatch would
+  // 3. EMBED QUERY — must be the same model used at ingest. A mismatch would
   //    not throw; it would silently make every score meaningless.
   const embedder = await createEmbedder(config.embeddingModel);
-  const queryVector = await embedder.embed(question);
+  const queryVector = await embedder.embed(safeQuestion);
 
-  // 3. RETRIEVE — top-k by cosine. k is 3 rather than 1 because top-1 picks the
+  // 4. RETRIEVE — top-k by cosine. k is 3 rather than 1 because top-1 picks the
   //    wrong document roughly one time in seven on this corpus (see SPEC).
   const hits = store.search(queryVector, config.topK);
 
-  // 4. GUARDRAIL — refuse. Nothing retrieved is close enough to ground an
+  // 5. GUARDRAIL — refuse. Nothing retrieved is close enough to ground an
   //    answer in, so there is no reason to spend a model call finding that out.
   const best = hits[0];
   if (!best || best.score < config.similarityThreshold) {
-    return { refused: true, hits };
+    return { refused: true, hits, questionRedacted };
   }
 
-  // 5. GUARDRAIL — redact. Strips direct identifiers from the text that is
-  //    about to leave the machine. Ids and offsets survive, so citations still
-  //    resolve. Note this covers the retrieved chunks, not the question.
+  // 6. GUARDRAIL — redact the context. Ids and offsets survive, so citations
+  //    still resolve. Together with step 1, nothing leaving for the model has
+  //    passed through unredacted.
   const context = redactChunks(hits.map((hit) => hit.chunk));
 
-  // 6. PROMPT — grounding rules in the system turn, labelled context and the
+  // 7. PROMPT — grounding rules in the system turn, labelled context and the
   //    question in the user turn. Throws if the context is empty, which would
-  //    mean step 4 let something through it should not have.
-  const prompt = buildPrompt(question, context);
+  //    mean step 5 let something through it should not have.
+  const prompt = buildPrompt(safeQuestion, context);
 
-  // 7. GENERATE — the provider is constructed only here, which is what makes
+  // 8. GENERATE — the provider is constructed only here, which is what makes
   //    "the refusal path never reaches the model" testable rather than claimed.
   const answer = await providerFor().complete(prompt);
 
-  return { refused: false, answer, hits };
+  return { refused: false, answer, hits, questionRedacted };
 }

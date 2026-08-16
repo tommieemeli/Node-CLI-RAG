@@ -99,7 +99,8 @@ export function chunk(text: string, sourceFile: string, opts: ChunkOptions): Chu
 
 1. `rag ingest ./docs` — load, chunk, embed, upsert into store, persist to
    `.rag/store.json` for reuse between runs
-2. `rag ask "question"` — embed query, retrieve top-k chunks, redact, build
+2. `rag ask "question"` — redact the question, embed it, retrieve top-k chunks,
+   redact those too, build
    prompt, call LLM, print answer + `[source: file.md#chunk3]` citations
 
 ## Chunking
