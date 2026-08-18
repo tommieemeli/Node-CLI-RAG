@@ -83,11 +83,27 @@ answer.
 
 ## Retrieval quality
 
-Measured over seven questions against `docs/`: top-1 picks the right document
-6/7 times, top-3 contains it 7/7. The miss is the expected failure mode for a
-small embedding model over documents with near-identical structure. Passing
-three chunks to the model rather than one is what absorbs it — which is why
-`TOP_K` is 3 and not 1.
+`npm run eval` scores 25 labelled questions against `docs/` and is the only
+way to tell whether a change to chunking, the model or the threshold helped.
+Current numbers:
+
+| | value |
+|---|---|
+| doc@3 — right document in top-3 | 19/19 (100%) |
+| ans@3 — answer text in a retrieved chunk | 14/19 (74%) |
+| ans@1 — answer in the top chunk | 7/19 (37%) |
+| false refusals / false passes | 1/19 · 1/6 |
+
+`ans@3` is the number that governs whether the model can answer, because
+`TOP_K` is 3 — it receives three chunks, not one. `ans@1` matters only if you
+want to shrink k or add a reranker.
+
+The remaining misses share one cause, and it is not chunking: **terse bullet
+lists embed poorly**. For `Ahven > Syvyys ja lämpötila`, which is three
+bullets, the heading alone scores 0.422 against its own question while the
+heading plus the bullets scores 0.413 — the list actively drags the score down.
+The same facts written as prose score 0.683. A reranker or a prose rewrite of
+the list-shaped sections is the next thing that would move this.
 
 ## What you would swap for production
 

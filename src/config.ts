@@ -1,5 +1,3 @@
-import dotenv from "dotenv";
-
 export interface Config {
   chunkSize: number;
   chunkOverlap: number;
@@ -42,13 +40,13 @@ function readString(key: string, fallback: string): string {
 }
 
 /**
- * Read configuration from `.env` and the environment, falling back to defaults.
- * Called explicitly rather than at import time so that importing this module
- * has no side effects.
+ * Read configuration from the environment, falling back to defaults.
+ *
+ * Reads `process.env` only. Loading `.env` is the entry point's job
+ * (`cli.ts`); doing it here would make the test suite depend on whichever
+ * `.env` the developer happens to have on disk.
  */
 export function loadConfig(overrides: Partial<Config> = {}): Config {
-  dotenv.config({ quiet: true });
-
   const config: Config = {
     chunkSize: readNumber("CHUNK_SIZE", defaults.chunkSize),
     chunkOverlap: readNumber("CHUNK_OVERLAP", defaults.chunkOverlap),

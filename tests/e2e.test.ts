@@ -118,8 +118,12 @@ describe("end to end", () => {
     });
 
     it("flags redaction even when the question is then refused", async () => {
+      // Deliberately far from the fixtures. A merely off-topic question is not
+      // safe here: the "[REDACTED]" placeholder is itself embedded and nudges
+      // the score, so a borderline question can cross the threshold precisely
+      // because it was redacted.
       const result = await ask(
-        "Kuinka korjaan polkupyörän renkaan, a@example.com?",
+        "Mikä on Suomen pääkaupunki, a@example.com?",
         config,
         () => new MockProvider(ANSWER),
       );

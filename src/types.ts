@@ -6,6 +6,15 @@ export interface Chunk {
   text: string;
   /** Character offset of this chunk's first character in the source document. */
   offset: number;
+  /**
+   * Heading trail this chunk sits under, e.g. `Ahven > Syönti ja ajankohta`.
+   *
+   * Prepended at embedding time only, never folded into `text`: it is
+   * synthesised from headings that are not contiguous with the body, so
+   * storing it inline would break the invariant that
+   * `source.slice(offset, offset + text.length) === text`.
+   */
+  headingPath?: string;
 }
 
 /** A chunk plus its embedding, as persisted in the store. */

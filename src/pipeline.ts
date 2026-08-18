@@ -10,7 +10,7 @@
  * on its own.
  */
 
-import { chunk } from "./chunker";
+import { chunk, embeddableText } from "./chunker";
 import type { Config } from "./config";
 import { createEmbedder } from "./embeddings";
 import { redact, redactChunks } from "./guardrails";
@@ -49,7 +49,7 @@ export async function ingest(dir: string, config: Config): Promise<IngestResult>
   //    document overwrites each entry with itself instead of duplicating it.
   const store = new VectorStore();
   for (const item of chunks) {
-    store.upsert(item.id, await embedder.embed(item.text), item);
+    store.upsert(item.id, await embedder.embed(embeddableText(item)), item);
   }
   await store.save(config.storePath);
 

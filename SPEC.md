@@ -40,6 +40,7 @@ prompt and from `output_config: { effort: "low" }`, not a sampling parameter.
 npm install              # install dependencies
 npm run ingest           # rag ingest ./docs  → writes .rag/store.json
 npm run ask -- "..."     # rag ask "question" → prints answer + citations
+npm run eval             # retrieval quality against evals/questions.json
 npm test                 # vitest run
 npm run test:watch       # vitest
 npm run typecheck        # tsc --noEmit
@@ -65,6 +66,7 @@ src/                 → application source
   generation.ts      → LLMProvider, ClaudeProvider, MockProvider
 tests/               → vitest specs, one per src module
   fixtures/          → tiny docs for the end-to-end test
+evals/               → labelled questions + `npm run eval` retrieval scoring
 docs/                → the corpus being indexed
 tasks/               → plan.md, todo.md (planning artifacts)
 .rag/                → persisted store (gitignored)
@@ -105,9 +107,18 @@ export function chunk(text: string, sourceFile: string, opts: ChunkOptions): Chu
 
 ## Chunking
 
-- Size: ~500 chars, overlap ~50 chars
-- Split on paragraph/sentence boundaries where possible, hard-split as fallback
-- Each chunk keeps `{ id, sourceFile, text, offset }`
+- **Heading-aware first:** a Markdown document is split at every heading, and a
+  chunk never spans a heading. Mixing the tail of one section with the head of
+  the next dilutes the embedding badly — measured on this corpus, a cleanly
+  bounded section scored 0.661 against its own question where the mixed chunk
+  containing the same sentence scored 0.351.
+- Sections longer than `CHUNK_SIZE` (~500 chars) are sub-split on
+  sentence/word boundaries, with ~50 chars of overlap. Overlap applies only
+  within a section.
+- Each chunk keeps `{ id, sourceFile, text, offset, headingPath? }`.
+  `headingPath` (e.g. `Ahven > Syönti ja ajankohta`) is prepended at embedding
+  time only, so `text` stays contiguous and
+  `source.slice(offset, offset + text.length) === text` still holds.
 - `id` is `` `${sourceFile}#chunk${n}` `` — stable across runs, which is what
   makes upsert idempotent
 
@@ -139,7 +150,7 @@ covered.
 | E2E | 2 fixture docs → ingest → ask → known answer + citation, `MockProvider` | `e2e.test.ts` |
 
 Tests must not hit the Anthropic API. `embeddings.ts` is exercised once in the
-E2E test with the real local model (first run downloads it, ~120 MB, cached).
+E2E test with the real local model (first run downloads it, ~465 MB, cached).
 
 ## Boundaries
 
@@ -189,14 +200,12 @@ E2E test with the real local model (first run downloads it, ~120 MB, cached).
   marginal chunk that slips through still meets the prompt-level grounding
   rule, which is the second line of defence.
 
-- **Top-k = 3 is load-bearing, not a default.** Measured over seven questions
-  against the real corpus: top-1 retrieval picks the right document 6/7 times,
-  top-3 contains it 7/7. The single miss ("Millaisissa paikoissa ahven
-  viihtyy?" ranked a `kuha.md` chunk first) is the expected failure mode for a
-  small embedding model over documents with near-identical structure — two
-  fish-behaviour notes with the same section headings. Passing three chunks to
-  the model rather than one is what absorbs it, since the model cites from the
-  context it is given.
+- **Top-k = 3 is load-bearing, not a default.** `npm run eval` measures 25
+  labelled questions. Retrieved-chunk-contains-answer is 74% at k=3 but only
+  37% at k=1, so passing three chunks rather than one is what makes the system
+  work at all. An earlier "6/7" figure in this spec compared source filenames
+  rather than answer containment and overstated retrieval quality; `ans@k` is
+  the metric to trust.
 
 ## Open Questions
 

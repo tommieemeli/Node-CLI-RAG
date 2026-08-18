@@ -1,9 +1,13 @@
 import { Command } from "commander";
+import dotenv from "dotenv";
 
 import { loadConfig } from "./config";
 import { ClaudeProvider } from "./generation";
 import { ask, ingest } from "./pipeline";
 import type { ScoredChunk } from "./types";
+
+// The entry point owns .env; src/config.ts reads process.env only.
+dotenv.config({ quiet: true });
 
 function formatHits(hits: ScoredChunk[]): string {
   return hits.map((hit) => `${hit.chunk.id} (${hit.score.toFixed(3)})`).join(", ");

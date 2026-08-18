@@ -12,6 +12,8 @@
 
 import { readFileSync } from "node:fs";
 
+import dotenv from "dotenv";
+
 import { loadConfig } from "../src/config";
 import { MockProvider } from "../src/generation";
 import { ask } from "../src/pipeline";
@@ -30,6 +32,9 @@ interface Unanswerable {
 const set: { answerable: Answerable[]; unanswerable: Unanswerable[] } = JSON.parse(
   readFileSync(new URL("./questions.json", import.meta.url), "utf8"),
 );
+
+// This is an entry point, so it owns .env (see src/config.ts).
+dotenv.config({ quiet: true });
 
 const config = loadConfig();
 const provider = () => new MockProvider("unused");
