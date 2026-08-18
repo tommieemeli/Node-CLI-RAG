@@ -22,7 +22,7 @@ export const defaults: Config = {
   // Multilingual on purpose: the corpus is Finnish. An English-only model such
   // as all-MiniLM-L6-v2 retrieves poorly here.
   embeddingModel: "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
-  anthropicModel: "claude-opus-5",
+  anthropicModel: "claude-haiku-4-5",
   storePath: ".rag/store.json",
 };
 

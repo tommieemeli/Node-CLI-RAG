@@ -1,0 +1,34 @@
+{
+  "answerable": [
+    { "q": "Milloin ahven syö aktiivisimmin?",           "doc": "ahven.md",        "contains": "aamu- ja iltahämärässä",  "lang": "fi" },
+    { "q": "Millä syvyydellä ahven on kesällä?",         "doc": "ahven.md",        "contains": "3-8 m",                   "lang": "fi" },
+    { "q": "Missä lämpötilassa ahven viihtyy?",          "doc": "ahven.md",        "contains": "12-20 °C",                "lang": "fi" },
+    { "q": "Millaisissa paikoissa ahven viihtyy?",       "doc": "ahven.md",        "contains": "Kivikkoiset rantatörmät", "lang": "fi" },
+    { "q": "Miten ilmanpaine vaikuttaa ahvenen syöntiin?", "doc": "ahven.md",      "contains": "ilmanpaine",              "lang": "fi" },
+    { "q": "Liikkuuko ahven parvessa?",                  "doc": "ahven.md",        "contains": "parvikala",               "lang": "fi" },
+
+    { "q": "Milloin kuha syö parhaiten?",                "doc": "kuha.md",         "contains": "ilta- ja yöhämärä",       "lang": "fi" },
+    { "q": "Millaista pohjaa kuha suosii?",              "doc": "kuha.md",         "contains": "savi-, hiekka- ja mutapohjia", "lang": "fi" },
+    { "q": "Millä syvyydellä kuhaa pyydetään?",          "doc": "kuha.md",         "contains": "4-10 m",                  "lang": "fi" },
+    { "q": "Miksi kuha näkee hyvin hämärässä?",          "doc": "kuha.md",         "contains": "valoherkät silmät",       "lang": "fi" },
+    { "q": "Miten kuha eroaa ahvenesta?",                "doc": "kuha.md",         "contains": "hämärämpää valoa",        "lang": "fi" },
+
+    { "q": "Minkä painoinen jigipää matalaan veteen?",   "doc": "viehevalinta.md", "contains": "3-7 g",                   "lang": "fi" },
+    { "q": "Millainen vieheväri sameaan veteen?",        "doc": "viehevalinta.md", "contains": "Kontrastiväriset",        "lang": "fi" },
+    { "q": "Millainen vetonopeus kuhalle?",              "doc": "viehevalinta.md", "contains": "tasainen, hidas vetonopeus", "lang": "fi" },
+    { "q": "Mitä teen kun syönti on vaisua?",            "doc": "viehevalinta.md", "contains": "pienennä viehekokoa",     "lang": "fi" },
+    { "q": "Milloin käytän uppouistinta?",               "doc": "viehevalinta.md", "contains": "Uppouistimet",            "lang": "fi" },
+
+    { "q": "When does perch feed most actively?",        "doc": "ahven.md",        "contains": "aamu- ja iltahämärässä",  "lang": "en" },
+    { "q": "What kind of bottom does zander prefer?",    "doc": "kuha.md",         "contains": "savi-, hiekka- ja mutapohjia", "lang": "en" },
+    { "q": "What lure colour for murky water?",          "doc": "viehevalinta.md", "contains": "Kontrastiväriset",        "lang": "en" }
+  ],
+  "unanswerable": [
+    { "q": "Mikä on Suomen pääkaupunki?",   "lang": "fi" },
+    { "q": "Kuinka paljon maksaa uusi vene?", "lang": "fi" },
+    { "q": "Miten leivon pullaa?",          "lang": "fi" },
+    { "q": "Milloin lohi nousee jokeen?",   "lang": "fi" },
+    { "q": "Mikä on paras onkimato?",       "lang": "fi" },
+    { "q": "How do I bake sourdough bread?", "lang": "en" }
+  ]
+}

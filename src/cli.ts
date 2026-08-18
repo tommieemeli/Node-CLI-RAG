@@ -33,7 +33,7 @@ async function runAsk(question: string): Promise<void> {
   if (result.refused) {
     const score = result.hits[0]?.score.toFixed(3) ?? "n/a";
     console.log(
-      `I don't know — nothing in the corpus is close enough to this question ` +
+      `En tiedä ` +
         `(best score ${score}, threshold ${config.similarityThreshold}).`,
     );
     return;
