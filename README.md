@@ -14,7 +14,8 @@ npm install
 cp .env.example .env      # set ANTHROPIC_API_KEY for `ask`
 ```
 
-Node 24+. The first `ingest` downloads the embedding model (~120 MB) and caches
+Node 24+. The first `ingest` downloads the embedding model (~465 MB: a 448 MB
+fp32 ONNX graph plus a 17 MB multilingual vocabulary) and caches
 it under `node_modules/`.
 
 ## Use
